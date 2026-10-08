@@ -4,8 +4,8 @@
 //  - Opened from GitHub Pages: uses `prod`, which must be an HTTPS URL (GitHub Pages is HTTPS, so http:// would be blocked).
 //    Keep it empty HERE: ./publish.sh injects the current tunnel address into the published copy (and removes `server`).
 window.SITE_CONFIG = {
-  server: "", // deployed logger, reachable once the firewall port is open (ufw allow 8787/tcp)
-  local: "",    // ./dev.sh logger
+  server: "",
+  local: "",
   prod: "https://enzyme-discussed-dans-asp.trycloudflare.com",
 };
 (function (c) {
