@@ -7,14 +7,25 @@
   const optedOut = navigator.doNotTrack === "1" || navigator.globalPrivacyControl === true;
   const enabled = Boolean(endpoint) && !optedOut;
 
-  // Diagnostics for local previews only (never runs on the live site): say in the console why nothing might arrive.
-  if (["localhost", "127.0.0.1"].includes(location.hostname)) {
-    if (!endpoint) console.warn("[visit logging] disabled: no endpoint configured");
-    else if (optedOut) console.warn("[visit logging] disabled: your browser sends Do Not Track / Global Privacy Control, so nothing is recorded (by design)");
+  // Diagnostics: always on localhost, and on any host with ?debug=1 in the URL. Says (console + a small badge) whether this
+  // browser will send statistics, and if not, why. Never runs for normal visitors.
+  if (["localhost", "127.0.0.1"].includes(location.hostname) || /[?&]debug=1\b/.test(location.search)) {
+    const say = (ok, text) => {
+      (ok ? console.info : console.warn)("[visit logging] " + text);
+      const show = () => {
+        let b = document.getElementById("vl-debug");
+        if (!b) { b = document.createElement("div"); b.id = "vl-debug"; b.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99999;max-width:90vw;font:12px/1.4 system-ui,sans-serif;padding:6px 10px;border-radius:8px;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.4)"; document.body.append(b); }
+        b.style.background = ok ? "#1f6a5f" : "#8e3556"; b.textContent = "visit logging: " + text;
+      };
+      document.body ? show() : addEventListener("DOMContentLoaded", show);
+    };
+    if (!endpoint) say(false, "disabled, no endpoint configured");
+    else if (optedOut) say(false, "OFF in this browser: it sends Do Not Track / Global Privacy Control, so nothing is recorded (by design)");
     else {
-      console.info("[visit logging] sending to " + endpoint + " (localhost previews are filed as 'dev' on the server)");
-      fetch(endpoint + "/health", { mode: "no-cors", cache: "no-store" }).catch(() =>
-        console.warn("[visit logging] cannot reach " + endpoint + ": logger down, port blocked by a firewall, or an extension/VPN blocks it. Try adding ?logger=local to the URL."));
+      say(true, "will send to " + endpoint + " ...checking");
+      fetch(endpoint + "/health", { mode: "no-cors", cache: "no-store" }).then(
+        () => say(true, "ON, logger reachable (" + endpoint + ")"),
+        () => say(false, "logger NOT reachable from this browser: an ad/tracker blocker, VPN/DNS filter or firewall is blocking " + endpoint));
     }
   }
 
