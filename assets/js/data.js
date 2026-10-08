@@ -1,0 +1,83 @@
+// Site content, kept short on purpose. Facts come from the CV repo and the project repos / demo page.
+// Never invent or inflate. Grades, GPA, ranks and the transcript are deliberately NOT on the site: they are only in the CV PDF.
+window.SITE = {
+  name: "Mohammadhossein Sabzalian",
+  email: "mohammad.sabzalian83@sharif.edu",
+  github: "https://github.com/MaximumAsp66915",
+  linkedin: "https://www.linkedin.com/in/mohammad-sabzalian-067b91363",
+  cvFile: "assets/cv.pdf",
+  cvUpdated: "September 2026", // shown on the CV page; matches the "Last updated" printed inside the CV. Update when assets/cv.pdf is replaced.
+  cvMeta: "PDF · 2 pages · A4",
+  tagline: "Electrical Engineering · Sharif University of Technology",
+  phrases: ["digital systems", "embedded real-time systems", "FPGA and ASIC flows", "recommender systems", "ML hardware"],
+  about: [
+    "I'm a final-year Electrical Engineering student (Digital Systems focus) at Sharif University of Technology in Tehran.",
+    "I'm interested in digital system design (RTL, FPGA and ASIC flows), embedded real-time systems, hardware acceleration of machine learning, and data analytics and recommender systems.",
+  ],
+
+  interests: [
+    { label: "Digital design", tag: "hardware", icon: "🔲" },
+    { label: "Embedded systems", tag: "embedded", icon: "📟" },
+    { label: "Data & recommenders", tag: "data", icon: "📊" },
+  ],
+
+  // flow: array of steps; a nested array is a set of parallel outputs. facts: [number, label, decimals, thousands-separator?]
+  projects: [
+    { id: "sutmusic", icon: "🎧", title: "SUT Music", when: "2026 – now", tags: ["software", "data"],
+      line: "A Telegram group's music, turned into a recommendation engine.",
+      meta: "Applied Data Science course · team of 3, project lead",
+      tech: ["Python", "scikit-learn", "PostgreSQL", "FastAPI", "React"],
+      flow: ["Telegram group", "Scraper", "Postgres · 24 tables", "Artist-first recommender", "Track re-ranker", "Telegram Mini App"],
+      facts: [[14496, "tracks", 0, true], [5182, "artists", 0, true], [24, "Postgres tables", 0], [0.087, "recall@10, artist-first", 3]],
+      points: ["Scraped and cleaned the group's whole history into one Postgres pipeline.", "Why artists first: user–track matrix is only ~0.55% dense.", "Track-level model plateaued at recall@10 ≈ 0.03–0.04; artist-first reached 0.087.", "Mini App: nine screens, six ways to get suggestions."],
+      links: [["Live demo", "https://maximumasp66915.github.io/Applied_Data_Science_Course/demo/preview/index.html", "demo-music"], ["Code", "https://github.com/MaximumAsp66915/Applied_Data_Science_Course", "gh-music"]] },
+    { id: "surveillance", icon: "📷", title: "Smart Surveillance Board", when: "Spring 2026", tags: ["hardware", "embedded"],
+      line: "Person detection, dashboard and alerts on an Orange Pi.",
+      meta: "Embedded Systems course · individual project",
+      tech: ["C", "Python", "Embedded Linux"],
+      flow: ["Camera", "On-board person detection", ["HTTPS dashboard", "REST API + Swagger", "MQTT + e-mail alerts"]],
+      extras: ["Guard Mode", "SQLite black box", "Watchdog", "Thermal throttling"],
+      facts: [[6, "build stages", 0], [4, "lighting conditions tested", 0]],
+      points: ["Orange Pi Zero Plus 2 (H5); core logic in C.", "Watchdog restarts the detector if the camera stalls.", "Thermal throttling trades frame rate for CPU temperature.", "Measured boot time, accuracy, load and temperature; full report written."],
+      links: [["Code", "https://github.com/MaximumAsp66915/Embeded-RealTime-Systems/tree/Smart-Surveillance-System%28Orange-Pi-Zero%29", "gh-embedded"]] },
+    { id: "otp", icon: "🧩", title: "OTP Memory Controller", when: "Spring 2026", tags: ["hardware"],
+      line: "RTL boot controller: read, patch, lock, distribute.",
+      meta: "ASIC/FPGA System Design course · team of 4, led week 1",
+      tech: ["Verilog", "Cadence Genus", "Cadence Xcelium"],
+      flow: ["OTP array (256 bit)", "Read FSM at power-on", "Patch0 / Patch1 overrides", "Output registers", ["Frequency estimator", "Temperature mapping", "Other sub-modules"]],
+      facts: [[256, "bit OTP array", 0], [2, "patch overrides", 0], [4, "team members", 0]],
+      points: ["At power-on reset the FSM reads every config field and applies valid patches.", "Self-checking testbench, synthesis, gate-level sim with SDF.", "Static output registers for downstream modules."],
+      links: [["Code", "https://github.com/MaximumAsp66915/DigitalSystemDesign-OTPController", "gh-otp"]] },
+    { id: "mips", icon: "🔌", title: "MIPS32 on FPGA", when: "Spring 2025", tags: ["hardware"],
+      line: "Single-cycle, multi-cycle and pipelined CPUs.",
+      meta: "Computer Architecture lab",
+      tech: ["Verilog", "MIPS32 assembly", "FPGA"],
+      flow: ["Single-cycle CPU", "Multi-cycle CPU", "Pipelined CPU"],
+      extras: ["Multi-cycle runs on a Zynq-7010 FPGA"],
+      facts: [[3, "CPU designs", 0]],
+      points: ["Wrote a working calculator program for the multi-cycle CPU."],
+      links: [] },
+    { id: "botos", icon: "🤖", title: "BotOS & Department Bots", when: "2024 – now", tags: ["software"],
+      line: "Bots for grading and course files, adopted by a second university.",
+      meta: "Lead developer",
+      tech: ["Python", "PostgreSQL", "Docker"],
+      flow: ["JSON config", "BotOS", "Isolated Docker container", "Bot"],
+      facts: [[2, "universities", 0]],
+      points: ["Course files, grading and re-judge tickets for the EE department.", "Also used by two student groups.", "New bots deploy from a declarative JSON file."],
+      links: [] },
+  ],
+
+  timeline: [
+    { when: "2024 – 2026", icon: "🧑‍🏫", title: "TA, Fundamentals of Programming & OOP", note: "Sharif · four consecutive semesters" },
+    { when: "Fall 2025", icon: "🧑‍🏫", title: "TA, Electronics 1", note: "Sharif" },
+    { when: "Fall 2025", icon: "🔬", title: "Lab assistant, Logic Circuit Lab", note: "Sharif · FPGA boards" },
+    { when: "Spring 2026", icon: "🧑‍🏫", title: "TA, Theory of Circuits", note: "IUST" },
+    { when: "Summer 2026", icon: "💼", title: "Trainee, Parsian Zarin (ABLY)", note: "MQL5 expert advisors · Excellent Pass" },
+  ],
+
+  skills: [
+    ["Digital design", ["Verilog", "SystemVerilog", "FPGA", "Cadence Genus", "Cadence Xcelium", "Vivado", "ModelSim"]],
+    ["Embedded", ["C", "MIPS32 assembly", "Embedded Linux", "LTspice", "Altium"]],
+    ["Software & data", ["Python", "C++", "Java", "PostgreSQL", "SQLite", "Docker", "Git", "scikit-learn", "FastAPI", "React"]],
+  ],
+};

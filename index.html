@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mohammadhossein Sabzalian</title>
+  <meta name="description" content="Mohammadhossein Sabzalian: Electrical Engineering (Digital Systems), Sharif University of Technology. Projects and CV.">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:title" content="Mohammadhossein Sabzalian">
+  <meta property="og:description" content="Electrical Engineering · Sharif University of Technology. Projects and CV.">
+  <meta property="og:image" content="https://maximumasp66915.github.io/assets/img/og.jpg">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/img/favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="assets/img/favicon-96.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/img/favicon-192.png">
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261013">
+  <script src="assets/js/config.js?v=20261013"></script>
+  <script src="assets/js/data.js?v=20261013" defer></script>
+  <script src="assets/js/tracker.js?v=20261013" defer></script>
+  <script src="assets/js/fx.js?v=20261013" defer></script>
+  <script src="assets/js/app.js?v=20261013" defer></script>
+</head>
+<body class="landing">
+  <script>if (location.hash && !/^#\/home/.test(location.hash)) document.body.classList.remove("landing");</script>
+  <a class="skip" href="#app">Skip to content</a>
+
+  <aside id="side">
+    <canvas id="bg" aria-hidden="true"></canvas>
+    <div class="side-in">
+      <div class="avatar">
+        <span class="ring" aria-hidden="true"></span>
+        <picture>
+          <source type="image/webp" sizes="140px" srcset="assets/img/avatar-128.webp 128w, assets/img/avatar-256.webp 256w, assets/img/avatar-384.webp 384w, assets/img/avatar-512.webp 512w">
+          <img src="assets/img/avatar-256.jpg" srcset="assets/img/avatar-128.jpg 128w, assets/img/avatar-256.jpg 256w, assets/img/avatar-384.jpg 384w, assets/img/avatar-512.jpg 512w" sizes="140px" width="112" height="112" alt="Portrait of Mohammadhossein Sabzalian">
+        </picture>
+      </div>
+      <a class="name" href="#/home">Mohammadhossein Sabzalian</a>
+      <p class="tagline" id="tagline"></p>
+      <p class="typed">I work on <span id="typed"></span><i class="caret"></i></p>
+      <nav id="nav" aria-label="Main"></nav>
+      <p class="hint" aria-hidden="true">Scroll down or pick something</p>
+      <div class="social" id="social"></div>
+      <div class="tools">
+        <button type="button" id="theme" class="icon" aria-label="Switch to dark mode" title="Dark mode">🌙</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="cue" aria-hidden="true"><span>⌄</span></div>
+  <button type="button" id="grip" aria-label="Drag to resize or close the side panel" title="Drag me"><i></i></button>
+
+  <div id="content">
+    <div id="progress" aria-hidden="true"></div>
+    <nav id="pager" aria-label="Pages"></nav>
+    <button type="button" id="close" aria-label="Close panel" title="Close (Esc)">✕</button>
+    <main id="app" tabindex="-1">
+      <noscript><p>This site needs JavaScript. My CV: <a href="assets/cv.pdf">PDF</a>.</p></noscript>
+    </main>
+    <footer class="foot">
+      <span>© Mohammadhossein Sabzalian</span>
+      <span>Anonymous stats · no cookies · <a href="#/privacy">Privacy</a></span>
+    </footer>
+  </div>
+  <!-- Pixel fallback for visitors without JavaScript. publish.sh swaps this URL for the logger's HTTPS address. -->
+  <noscript><img src="https://enzyme-discussed-dans-asp.trycloudflare.com/p/home.gif" width="1" height="1" alt="" style="position:absolute;left:-9999px"></noscript>
+
+  <dialog id="modal" aria-label="Project details"></dialog>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
