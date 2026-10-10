@@ -15,7 +15,9 @@
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-html, body { overflow-x: hidden; }
+/* Only <html> may clip sideways overflow. If <body> also had an overflow value it would become a (non-scrolling) scroll container and,
+   with overscroll-behavior set, would swallow every touch scroll on phones. */
+html { overflow-x: hidden; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } .node, .arrow, .ln { opacity: 1 !important; transform: none !important; } }
 body { margin: 0; background: radial-gradient(1100px 520px at 100% 0, rgba(224, 162, 31, .14), transparent 65%), var(--bg); color: var(--text); font: 16px/1.6 var(--font); transition: background .4s; }
 a { color: var(--accent); }
@@ -269,7 +271,7 @@ a.chip { text-decoration: none; display: inline-block; }
 
 @media (max-width: 56rem) {
   :root { --side: 100%; --bar: 3.5rem; --tabs: 4rem; }
-  html, body { overscroll-behavior-y: none; }                                          /* no pull-to-refresh fighting the swipe navigation */
+  html { overscroll-behavior-y: none; }                                          /* no pull-to-refresh fighting the swipe navigation */
   body { -webkit-tap-highlight-color: transparent; }
   #grip, #pager { display: none; }
 
