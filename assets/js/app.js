@@ -14,11 +14,11 @@
   const isClosed = () => body.classList.contains("landing");
 
   const ROUTES = {
-    home:       { label: "Home",       render: renderHome },
-    projects:   { label: "Projects",   render: renderProjects },
-    experience: { label: "Experience", render: renderExperience },
-    cv:         { label: "CV",         render: renderCV },
-    misc:       { label: "Misc",       render: renderMisc },
+    home:       { label: "Home",       icon: "🏠", render: renderHome },
+    projects:   { label: "Projects",   icon: "🛠️", render: renderProjects },
+    experience: { label: "Experience", icon: "💼", render: renderExperience },
+    cv:         { label: "CV",         icon: "📄", render: renderCV },
+    misc:       { label: "Misc",       icon: "✨", render: renderMisc },
     privacy:    { label: "Privacy",    render: renderPrivacy, hidden: true },
   };
   const NAV = ["home", "projects", "experience", "cv", "misc"];
@@ -97,6 +97,8 @@
         h("div", { class: "about" },
           S.about.map((p, i) => h("p", { class: i === 0 ? "lead" : "" }, p)),
           h("div", { class: "actions" }, h("a", { class: "btn", href: "#/cv" }, "Get my CV"), h("a", { class: "btn ghost", href: "#/projects" }, "See projects")))),
+      sub("contact", "Find me", h("div", { class: "chips reveal contact" },
+        ext("GitHub", S.github, "gh-profile", "chip"), h("button", { class: "chip", type: "button", onclick: copyEmail }, "Copy email"), ext("LinkedIn", S.linkedin, "linkedin", "chip"))),
       sub("interests", "I like", h("div", { class: "chips reveal" }, S.interests.map(i =>
         h("button", { class: "chip", type: "button", onclick: () => { state.tag = i.tag; state.tech = null; state.q = ""; track("click", "interest-" + i.tag); go("projects"); } }, i.icon + " " + i.label)))));
   }
@@ -238,7 +240,8 @@
   const routeName = () => { const m = location.hash.match(/^#\/([a-z]+)/); return m && ROUTES[m[1]] ? m[1] : "home"; };
 
   function renderNav(active) {
-    const items = NAV.map((k, n) => h("a", { href: "#/" + k, "data-route": k, style: `--n:${n}`, "aria-current": k === active ? "page" : null }, ROUTES[k].label));
+    const items = NAV.map((k, n) => h("a", { href: "#/" + k, "data-route": k, style: `--n:${n}`, "aria-current": k === active ? "page" : null },
+      h("span", { class: "ni", "aria-hidden": "true" }, ROUTES[k].icon), h("span", { class: "nl" }, ROUTES[k].label)));
     $("#nav").replaceChildren(...items);
     const pager = $("#pager");
     if (pager) pager.replaceChildren(...NAV.map((k, n) => h("button", { type: "button", title: ROUTES[k].label, "aria-label": "Go to " + ROUTES[k].label, "aria-current": k === active ? "page" : null,
@@ -325,40 +328,54 @@
     const now = () => performance.now();
     const atTop = () => scrollY <= 1;
     const atBottom = () => scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
+    // a gesture may START within 40 px of an edge (pages that barely overflow count as fitting); the move itself needs the exact edge
+    const nearTop = () => scrollY <= 40;
+    const nearBottom = () => scrollY + innerHeight >= document.documentElement.scrollHeight - 40;
+    // After a page change the REST of the same gesture (trackpad inertia, a finger still moving, a fling) must not scroll the new
+    // page: wheel events are cancelled, touchmoves are cancelled, and any scroll that still happens within 900 ms is pulled back to
+    // the top. The new page therefore always starts at its top, in both directions.
+    let holdUntil = 0, wheelLocked = false, touchLocked = false;
+    const hold = () => { holdUntil = now() + 900; };
+    addEventListener("scroll", () => { if (now() < holdUntil && scrollY > 0) scrollTo(0, 0); }, { passive: true });
     const openHome = () => {
       if (!isClosed()) return;
-      track("click", "scroll-open");
+      track("click", "scroll-open"); hold();
       if (location.hash === "#/home" || !location.hash) { openPanel(); } else { setOpen(true); location.hash = "#/home"; }
     };
     const step = delta => {
-      if (delta < 0 && currentRoute === "home") { track("click", "scroll-close"); closePanel(); return true; }
+      if (delta < 0 && currentRoute === "home") { track("click", "scroll-close"); hold(); closePanel(); return true; }
       const i = NAV.indexOf(currentRoute), j = i + delta;
       if (i < 0 || j < 0 || j >= NAV.length) return false;
-      enterFrom = delta < 0 ? "top" : "bottom"; pendingScroll = delta < 0 ? "bottom" : "top";
+      enterFrom = delta < 0 ? "top" : "bottom"; pendingScroll = "top"; hold();
       track("click", delta < 0 ? "scroll-prev" : "scroll-next");
       location.hash = "#/" + NAV[j];
       return true;
     };
     let lastWheel = 0, acc = 0, startTop = false, startBottom = false, used = false;
     addEventListener("wheel", e => {
+      if (e.ctrlKey || modal.open) return; // pinch-zoom and the open modal keep their normal behaviour
       const t = now(), fresh = t - lastWheel > 250; lastWheel = t;
-      if (fresh) { acc = 0; used = false; startTop = atTop(); startBottom = atBottom(); }
-      if (used || modal.open || t - lastToggle < 700) return;
+      if (fresh) { acc = 0; used = false; startTop = nearTop(); startBottom = nearBottom(); if (t - lastToggle >= 700) wheelLocked = false; }
+      if (wheelLocked) { e.preventDefault(); return; }
+      if (used || t - lastToggle < 700) return;
       acc += e.deltaY;
-      if (isClosed()) { if (acc > 30) { used = true; openHome(); } return; }
-      if (acc > 60 && startBottom && atBottom()) used = step(1);
-      else if (acc < -60 && startTop && atTop()) used = step(-1);
-    }, { passive: true });
+      if (isClosed()) { if (acc > 30) { used = true; wheelLocked = true; openHome(); } return; }
+      if (acc > 60 && startBottom && atBottom()) { used = step(1); wheelLocked = used; }
+      else if (acc < -60 && startTop && atTop()) { used = step(-1); wheelLocked = used; }
+    }, { passive: false });
     let ty = null, tTop = false, tBottom = false;
-    addEventListener("touchstart", e => { ty = e.touches[0].clientY; tTop = atTop(); tBottom = atBottom(); }, { passive: true });
+    addEventListener("touchstart", e => { ty = e.touches[0].clientY; tTop = nearTop(); tBottom = nearBottom(); touchLocked = false; }, { passive: true });
     addEventListener("touchmove", e => {
-      if (ty === null || modal.open || now() - lastToggle < 700) return;
+      if (modal.open) return;
+      if (touchLocked) { if (e.cancelable) e.preventDefault(); return; }
+      if (ty === null || now() - lastToggle < 700) return;
       const dy = e.touches[0].clientY - ty;
-      if (isClosed()) { if (dy < -40) { ty = null; openHome(); } return; }
-      if (dy < -70 && tBottom && atBottom()) { if (step(1)) ty = null; }
-      else if (dy > 70 && tTop && atTop()) { if (step(-1)) ty = null; }
-    }, { passive: true });
-    addEventListener("touchend", () => { ty = null; }, { passive: true });
+      if (isClosed()) { if (dy < -40) { ty = null; touchLocked = true; openHome(); } return; }
+      if (dy < -70 && tBottom && atBottom()) { if (step(1)) { ty = null; touchLocked = true; } }
+      else if (dy > 70 && tTop && atTop()) { if (step(-1)) { ty = null; touchLocked = true; } }
+    }, { passive: false });
+    addEventListener("touchend", () => { ty = null; touchLocked = false; }, { passive: true });
+    addEventListener("touchcancel", () => { ty = null; touchLocked = false; }, { passive: true });
     addEventListener("keydown", e => { // keyboard users: scroll keys on the cover open Home too
       if (isClosed() && ["ArrowDown", "PageDown", "End", " "].includes(e.key) && !e.target.closest("button, a, input, textarea, [role=button]")) { e.preventDefault(); openHome(); }
     });

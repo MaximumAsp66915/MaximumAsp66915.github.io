@@ -14,8 +14,9 @@
       (ok ? console.info : console.warn)("[visit logging] " + text);
       const show = () => {
         let b = document.getElementById("vl-debug");
-        if (!b) { b = document.createElement("div"); b.id = "vl-debug"; b.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99999;max-width:90vw;font:12px/1.4 system-ui,sans-serif;padding:6px 10px;border-radius:8px;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.4)"; document.body.append(b); }
-        b.style.background = ok ? "#1f6a5f" : "#8e3556"; b.textContent = "visit logging: " + text;
+        if (!b) { b = document.createElement("div"); b.id = "vl-debug"; b.style.cssText = "cursor:pointer;position:fixed;left:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:99999;max-width:90vw;font:12px/1.4 system-ui,sans-serif;padding:6px 10px;border-radius:8px;color:#fff;box-shadow:0 2px 10px rgba(0,0,0,.4)"; document.body.append(b); }
+        b.style.background = ok ? "#1f6a5f" : "#8e3556"; b.textContent = "visit logging: " + text; b.title = "tap to dismiss"; b.onclick = () => b.remove();
+        clearTimeout(b._t); if (ok && /^ON/.test(text)) b._t = setTimeout(() => b.remove(), 5000); // good news disappears by itself
       };
       document.body ? show() : addEventListener("DOMContentLoaded", show);
     };
