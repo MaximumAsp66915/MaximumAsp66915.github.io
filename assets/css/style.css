@@ -14,11 +14,14 @@
 :root[data-theme="dark"] { --bg: #13121f; --surface: #1d1b30; --text: #f3ecda; --muted: #a79fb4; --line: #2d2a45; --soft: #25223b; --accent: #f0c14e; --accent-ink: #1d1b33; --accent2: #4fb8a6; --g1: #100f24; --g2: #17463f; --g3: #6d5e22; --shadow: 0 10px 30px rgba(0, 0, 0, .4); }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+/* NOTE: no `scroll-behavior: smooth` on purpose. Page changes reset the scroll position from JS; if that were animated it would
+   fight the finger's momentum and the screen would visibly juggle before settling at the top. */
+/* while a swipe that changed the page is still going, the page cannot scroll (touch devices; set by app.js) */
+html.freeze { overflow: hidden !important; }
 /* Only <html> may clip sideways overflow. If <body> also had an overflow value it would become a (non-scrolling) scroll container and,
    with overscroll-behavior set, would swallow every touch scroll on phones. */
 html { overflow-x: hidden; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } .node, .arrow, .ln { opacity: 1 !important; transform: none !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .node, .arrow, .ln { opacity: 1 !important; transform: none !important; } }
 body { margin: 0; background: radial-gradient(1100px 520px at 100% 0, rgba(224, 162, 31, .14), transparent 65%), var(--bg); color: var(--text); font: 16px/1.6 var(--font); transition: background .4s; }
 a { color: var(--accent); }
 :focus-visible { outline: 3px solid var(--accent2); outline-offset: 2px; border-radius: 4px; }

@@ -12,6 +12,7 @@
   let enterFrom = "bottom";      // direction the next page slides in from
   let pendingScroll = "top";     // where to land on the next page
   const isClosed = () => body.classList.contains("landing");
+  const jump = y => { const h = document.documentElement; h.style.scrollBehavior = "auto"; window.scrollTo(0, y); h.style.scrollBehavior = ""; }; // always instant, whatever the CSS says
 
   const ROUTES = {
     home:       { label: "Home",       icon: "🏠", render: renderHome },
@@ -257,7 +258,7 @@
       document.title = (name === "home" ? "" : ROUTES[name].label + " · ") + S.name;
       renderNav(name);
       rerender();
-      window.scrollTo(0, pendingScroll === "bottom" ? document.documentElement.scrollHeight : 0);
+      jump(0);
       pendingScroll = "top"; enterFrom = "bottom"; lastToggle = performance.now();
       if (!first && !isClosed()) { const t = $("h1", app); t && t.focus({ preventScroll: true }); }
     }
@@ -274,7 +275,7 @@
   function setOpen(open) { body.classList.toggle("landing", !open); lastToggle = performance.now(); }
   function openPanel() {
     if (!isClosed()) return;
-    setOpen(true); window.scrollTo(0, 0);
+    setOpen(true); jump(0);
     window.Tracker && currentRoute && window.Tracker.view(currentRoute);
   }
   function closePanel() {
@@ -334,19 +335,25 @@
     // After a page change the REST of the same gesture (trackpad inertia, a finger still moving, a fling) must not scroll the new
     // page: wheel events are cancelled, touchmoves are cancelled, and any scroll that still happens within 900 ms is pulled back to
     // the top. The new page therefore always starts at its top, in both directions.
-    let holdUntil = 0, wheelLocked = false, touchLocked = false;
+    let holdUntil = 0, wheelLocked = false, touchLocked = false, touching = false, frozen = false, thawT = 0, lastTouchAt = 0;
     const hold = () => { holdUntil = now() + 900; };
-    addEventListener("scroll", () => { if (now() < holdUntil && scrollY > 0) scrollTo(0, 0); }, { passive: true });
+    // Touch: the finger/fling that changed the page must not move the NEW page at all. Freezing the page (html.freeze = overflow hidden)
+    // cancels the fling; it is released shortly after the finger lifts. Resets to the top are instant (see jump), never animated.
+    const thaw = () => { clearTimeout(thawT); frozen = false; document.documentElement.classList.remove("freeze"); if (scrollY > 0) jump(0); };
+    const scheduleThaw = () => { clearTimeout(thawT); thawT = setTimeout(thaw, Math.max(0, holdUntil - now()) + 200); };
+    const freeze = () => { if (!touching) return; frozen = true; document.documentElement.classList.add("freeze"); jump(0); clearTimeout(thawT); thawT = setTimeout(thaw, 3000); };
+    // wheel/keyboard only: pull stray scrolling back to the top (never fights a touch fling: that is handled by the freeze)
+    addEventListener("scroll", () => { if (!frozen && now() < holdUntil && now() - lastTouchAt > 1500 && scrollY > 0) jump(0); }, { passive: true });
     const openHome = () => {
       if (!isClosed()) return;
-      track("click", "scroll-open"); hold();
+      track("click", "scroll-open"); hold(); freeze();
       if (location.hash === "#/home" || !location.hash) { openPanel(); } else { setOpen(true); location.hash = "#/home"; }
     };
     const step = delta => {
-      if (delta < 0 && currentRoute === "home") { track("click", "scroll-close"); hold(); closePanel(); return true; }
+      if (delta < 0 && currentRoute === "home") { track("click", "scroll-close"); hold(); freeze(); closePanel(); return true; }
       const i = NAV.indexOf(currentRoute), j = i + delta;
       if (i < 0 || j < 0 || j >= NAV.length) return false;
-      enterFrom = delta < 0 ? "top" : "bottom"; pendingScroll = "top"; hold();
+      enterFrom = delta < 0 ? "top" : "bottom"; pendingScroll = "top"; hold(); freeze();
       track("click", delta < 0 ? "scroll-prev" : "scroll-next");
       location.hash = "#/" + NAV[j];
       return true;
@@ -364,8 +371,9 @@
       else if (acc < -60 && startTop && atTop()) { used = step(-1); wheelLocked = used; }
     }, { passive: false });
     let ty = null, tTop = false, tBottom = false;
-    addEventListener("touchstart", e => { ty = e.touches[0].clientY; tTop = nearTop(); tBottom = nearBottom(); touchLocked = false; }, { passive: true });
+    addEventListener("touchstart", e => { touching = true; lastTouchAt = now(); ty = e.touches[0].clientY; tTop = nearTop(); tBottom = nearBottom(); touchLocked = false; }, { passive: true });
     addEventListener("touchmove", e => {
+      lastTouchAt = now();
       if (modal.open) return;
       if (touchLocked) { if (e.cancelable) e.preventDefault(); return; }
       if (ty === null || now() - lastToggle < 700) return;
@@ -374,8 +382,9 @@
       if (dy < -70 && tBottom && atBottom()) { if (step(1)) { ty = null; touchLocked = true; } }
       else if (dy > 70 && tTop && atTop()) { if (step(-1)) { ty = null; touchLocked = true; } }
     }, { passive: false });
-    addEventListener("touchend", () => { ty = null; touchLocked = false; }, { passive: true });
-    addEventListener("touchcancel", () => { ty = null; touchLocked = false; }, { passive: true });
+    const touchDone = () => { ty = null; touchLocked = false; touching = false; lastTouchAt = now(); if (frozen) scheduleThaw(); };
+    addEventListener("touchend", touchDone, { passive: true });
+    addEventListener("touchcancel", touchDone, { passive: true });
     addEventListener("keydown", e => { // keyboard users: scroll keys on the cover open Home too
       if (isClosed() && ["ArrowDown", "PageDown", "End", " "].includes(e.key) && !e.target.closest("button, a, input, textarea, [role=button]")) { e.preventDefault(); openHome(); }
     });
