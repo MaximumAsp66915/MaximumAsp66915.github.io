@@ -327,7 +327,7 @@
       cue.style.opacity = Math.max(0, 1 - e * 4);
       if (!mobile) {
         side.style.width = w + "px"; grip.style.left = (w - 18) + "px";
-        const o = e >= 1 ? "" : String(e);              // no opacity (= no extra layer) once fully docked
+        const o = e >= 1 ? "1" : String(e);             // NEVER "" here: the CSS default for these is opacity 0 on desktop
         app.style.opacity = o; pager.style.opacity = o; foot.style.opacity = o; progress.style.opacity = o;
       }
       L.e = e; L.w = w;
