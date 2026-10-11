@@ -255,31 +255,47 @@
   activate(app);
 
   // --------------------------------------------------- geometry, scroll-linked cover, scroll-spy
-  let D = 0, SIDE_PX = 336, vh = innerHeight;      // D = distance (px) over which the desktop cover turns into the sidebar
+  // Performance rules (phones!): nothing in update() may read layout. Section positions are measured once (measure/layout) and
+  // re-measured only when the content size changes; per frame we only do arithmetic on scrollY and write a handful of inline styles
+  // on the elements that actually move. (--e lives on #side, never on <html>, so the rest of the document is not restyled.)
+  const spacer = $("#spacer"), pager = $("#pager"), foot = $(".foot"), cue = $("#cue"), grip = $("#grip"), bar = $("#bar"), tabs = $("#tabs"), progress = $("#progress");
+  let D = 0, SIDE_PX = 336, vh = innerHeight, lastW = innerWidth;   // D = scroll distance (px) over which the desktop cover turns into the sidebar
+  let tops = {}, docH = 0, barH = 0;
   const ease = p => p * p * (3 - 2 * p);           // smoothstep
   const invEase = e => 0.5 - Math.sin(Math.asin(1 - 2 * clamp(e)) / 3);
-  function measure() {
-    vh = innerHeight;
-    SIDE_PX = parseFloat(getComputedStyle(root).fontSize) * 21;
-    D = isMobile() ? 0 : Math.round(clamp(vh * 0.6, 320, 640));
-    root.style.setProperty("--cover", D + "px");
-  }
-  const barPx = () => (isMobile() ? ($("#bar").offsetHeight || 56) : 0);
   const sectionTop = id => $("#" + id).getBoundingClientRect().top + scrollY;
-  const targetY = id => id === "cover" ? 0 : Math.max(0, Math.round(sectionTop(id) - barPx()));
+  function layout() {                                // the only place that reads layout (resize, content size change, load)
+    docH = root.scrollHeight;
+    barH = isMobile() ? ($("#bar").offsetHeight || 56) : 0;
+    for (const id of NAV) tops[id] = sectionTop(id);
+  }
+  function resetInline() {                           // crossing the phone/desktop breakpoint: drop the other layout's inline styles
+    side.style.width = ""; grip.style.left = "";
+    for (const el of [app, pager, foot, progress, cue, bar, tabs]) { el.style.opacity = ""; el.style.transform = ""; }
+    bar.classList.remove("on"); tabs.classList.remove("on");
+    L = { e: -1, bo: -1, w: -1 };
+  }
+  function measure() {
+    vh = innerHeight; lastW = innerWidth;
+    SIDE_PX = parseFloat(getComputedStyle(root).fontSize) * 21;
+    D = isMobile() ? 0 : Math.round(clamp(vh * 0.9, 420, 900));   // desktop: the cover takes ~one screen of scrolling to dock
+    spacer.style.height = D + "px";
+    layout();
+  }
+  const targetY = id => id === "cover" ? 0 : Math.max(0, Math.round(sectionTop(id) - barH));
 
   let navTarget = null;       // while a menu click is scrolling, that section stays highlighted
-  let lastActive = null, viewT = 0, viewed = null, particles = null;
-  const progress = $("#progress");
+  let lastActive = null, viewT = 0, viewed = null, particles = null, partOn = true;
+  let L = { e: -1, bo: -1, w: -1 };                 // last written values: unchanged values are never written again
 
-  function computeActive() {
-    const y = scrollY, room = root.scrollHeight - vh;
+  function computeActive(y) {
     if (navTarget) return navTarget;
-    if (y < (isMobile() ? vh * 0.5 : D * 0.5)) return "cover";
+    const mobile = isMobile(), room = docH - vh;
+    if (y < (mobile ? vh * 0.5 : D * 0.5)) return "cover";
     if (room > 0 && y >= room - 4) return NAV[NAV.length - 1];
-    const probe = isMobile() ? barPx() + vh * 0.3 : vh * 0.35;
+    const probe = y + (mobile ? barH + vh * 0.3 : vh * 0.35);
     let act = NAV[0];
-    for (const id of NAV) if ($("#" + id).getBoundingClientRect().top <= probe) act = id;
+    for (const id of NAV) if (tops[id] <= probe) act = id;
     return act;
   }
   function setActive(id) {
@@ -295,33 +311,51 @@
   }
 
   function update() {
-    const y = scrollY, W = root.clientWidth; // visible width (without the scrollbar)
-    let e, bo = 0;
-    if (!isMobile()) {
+    const y = scrollY, mobile = isMobile();            // the only read
+    let e, bo = 0, w = 0;
+    if (!mobile) {
+      const W = root.clientWidth;                       // visible width (without the scrollbar); constant between resizes
       e = ease(clamp(D ? y / D : 1));
-      const w = W - (W - SIDE_PX) * e;
-      side.style.width = w.toFixed(1) + "px";
-      root.style.setProperty("--sw", w.toFixed(1) + "px");
+      w = Math.round((W - (W - SIDE_PX) * e) * 10) / 10;
     } else {
       e = clamp(y / (vh * 0.6));
-      bo = clamp((y - vh * 0.5) / (vh * 0.5 - barPx())); // fully in exactly when the cover's bottom edge reaches the bar
-      side.style.width = "";
-      if (particles) (y > vh ? particles.pause() : particles.resume());
+      bo = clamp((y - vh * 0.5) / (vh * 0.5 - barH));   // fully in exactly when the cover's bottom edge reaches the bar
     }
-    root.style.setProperty("--e", e.toFixed(4));
-    root.style.setProperty("--bo", bo.toFixed(3));
-    root.classList.toggle("bar-on", bo > 0.05);
-    const room = root.scrollHeight - vh;
-    progress.style.transform = `scaleX(${room > 0 ? clamp(y / room) : 0})`;
-    setActive(computeActive());
+    e = Math.round(e * 1000) / 1000; bo = Math.round(bo * 1000) / 1000;
+    if (e !== L.e || w !== L.w) {
+      side.style.setProperty("--e", e);
+      cue.style.opacity = Math.max(0, 1 - e * 4);
+      if (!mobile) {
+        side.style.width = w + "px"; grip.style.left = (w - 18) + "px";
+        const o = e >= 1 ? "" : String(e);              // no opacity (= no extra layer) once fully docked
+        app.style.opacity = o; pager.style.opacity = o; foot.style.opacity = o; progress.style.opacity = o;
+      }
+      L.e = e; L.w = w;
+    }
+    if (mobile && bo !== L.bo) {
+      bar.style.opacity = bo; tabs.style.opacity = bo; tabs.style.transform = "translateY(" + ((1 - bo) * 100) + "%)"; progress.style.opacity = bo;
+      const on = bo > 0.05; bar.classList.toggle("on", on); tabs.classList.toggle("on", on);
+      L.bo = bo;
+    }
+    if (mobile && particles) { const run = y <= 24; if (run !== partOn) { partOn = run; run ? particles.resume() : particles.pause(); } } // no animation while the cover slides away
+    const room = docH - vh;
+    progress.style.transform = "scaleX(" + (room > 0 ? clamp(y / room) : 0) + ")";
+    setActive(computeActive(y));
   }
-  let ticking = false, idleT = 0;
+  let ticking = false, idleT = 0, relayoutT = 0;
   addEventListener("scroll", () => {
     if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; update(); }); }
     clearTimeout(idleT); idleT = setTimeout(() => { navTarget = null; update(); }, 160);
   }, { passive: true });
-  addEventListener("resize", () => { measure(); update(); });
-  mobileMQ.addEventListener ? mobileMQ.addEventListener("change", () => { measure(); update(); }) : mobileMQ.addListener(() => { measure(); update(); });
+  function onResize() {
+    // phones fire resize while the browser toolbar slides (height only): keep the geometry then, so nothing moves under the finger
+    if (isMobile() && innerWidth === lastW) { docH = root.scrollHeight; return update(); }
+    measure(); update();
+  }
+  addEventListener("resize", onResize);
+  const onBreakpoint = () => { resetInline(); measure(); update(); };
+  mobileMQ.addEventListener ? mobileMQ.addEventListener("change", onBreakpoint) : mobileMQ.addListener(onBreakpoint);
+  if ("ResizeObserver" in window) new ResizeObserver(() => { clearTimeout(relayoutT); relayoutT = setTimeout(() => { layout(); update(); }, 60); }).observe(app); // filters, images, fonts
 
   function scrollToId(id, instant) {
     navTarget = id === "cover" ? null : id;
@@ -369,6 +403,47 @@
   });
 
   const safe = (name, fn) => { try { fn(); } catch (e) { console.warn("optional feature failed: " + name, e); } };
+
+  // ------------------------------------------------------------------- the cover gate (desktop layout)
+  // A flick used to carry the visitor straight through Home into the next sections. While the cover is still docking, scrolling now
+  // moves it proportionally (eased) but STOPS at Home: whatever is left of that gesture (trackpad inertia, a held wheel) is swallowed,
+  // and the next gesture scrolls on normally. Phones are untouched (their cover simply scrolls away).
+  safe("cover-gate", () => {
+    let engaged = false, arrived = false, target = 0, lastWheel = 0, raf = 0;
+    const px = e => e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * vh : e.deltaY;
+    const step = () => {
+      raf = 0;
+      const y = scrollY, d = target - y;
+      if (Math.abs(d) < 3) { jump(target); return; }
+      jump(y + d * 0.22);
+      raf = requestAnimationFrame(step);
+    };
+    addEventListener("wheel", e => {
+      if (isMobile() || e.ctrlKey || modal.open || !D) return;
+      if (side.scrollHeight > side.clientHeight && side.contains(e.target)) return;   // short window: the sidebar scrolls itself
+      const t = performance.now(), fresh = t - lastWheel > 200; lastWheel = t;
+      if (fresh) { engaged = scrollY < D - 1 && e.deltaY > 0; arrived = false; target = scrollY; navTarget = null; }
+      if (!engaged) return;
+      e.preventDefault();
+      if (arrived) return;                                  // docked: swallow the rest of this gesture
+      target = clamp(target + px(e), 0, D);
+      if (target >= D - 0.5) { target = D; arrived = true; }
+      if (!raf) raf = requestAnimationFrame(step);
+    }, { passive: false });
+    addEventListener("keydown", e => {                        // Space / PageDown / ArrowDown inside the cover: go to Home smoothly
+      if (isMobile() || scrollY >= D - 1 || modal.open || e.target.closest("input, textarea, select, [contenteditable]")) return;
+      if (["ArrowDown", "PageDown", " "].includes(e.key) && !e.target.closest("button, a")) { e.preventDefault(); scrollToId("home"); }
+    });
+    // touch screens that use the desktop layout (tablets): stop the fling at Home by freezing the page until the finger lifts
+    let touchGate = false, thawT = 0;
+    const thaw = () => { clearTimeout(thawT); root.classList.remove("freeze"); };
+    addEventListener("touchstart", () => { touchGate = !isMobile() && scrollY < D - 1; }, { passive: true });
+    addEventListener("scroll", () => {
+      if (touchGate && scrollY >= D) { touchGate = false; root.classList.add("freeze"); jump(D); clearTimeout(thawT); thawT = setTimeout(thaw, 2500); }
+    }, { passive: true });
+    const touchDone = () => { touchGate = false; if (root.classList.contains("freeze")) { clearTimeout(thawT); thawT = setTimeout(thaw, 250); } };
+    addEventListener("touchend", touchDone, { passive: true }); addEventListener("touchcancel", touchDone, { passive: true });
+  });
 
   // ---------------------------------------- the edge handle: drag to scrub between the cover and the page (desktop)
   safe("grip", () => {

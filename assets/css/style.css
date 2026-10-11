@@ -19,6 +19,7 @@
 /* Only <html> may clip sideways overflow. If <body> also had an overflow value it would become a (non-scrolling) scroll container and,
    with overscroll-behavior set, would swallow every touch scroll on phones. */
 html { overflow-x: hidden; }
+html.freeze { overflow: hidden !important; }   /* tablets: stops a fling at Home (see the cover gate in app.js) */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .node, .arrow, .ln { opacity: 1 !important; transform: none !important; } }
 body { margin: 0; background: radial-gradient(1100px 520px at 100% 0, rgba(224, 162, 31, .14), transparent 65%), var(--bg); color: var(--text); font: 16px/1.6 var(--font); transition: background .4s; }
 a { color: var(--accent); }
@@ -33,8 +34,9 @@ h1, h2, h3 { line-height: 1.25; margin: 0; }
    ONE continuous page: cover, Home, Projects, Experience, CV, Misc are stacked sections. --e (0..1) says how far the visitor has
    scrolled through the cover and is set by app.js on every frame.
    Desktop: the fixed sidebar is full width at e=0 and narrows to 21rem at e=1 (app.js sets its width) while the content fades in.
-   Phone: the cover is the first screen and simply scrolls away; a top bar and a bottom tab bar fade in (--bo). */
-:root { --e: 0; --bo: 0; --sw: 100vw; --cover: 0px; --sidew: 21rem; --av: 1.25; --name-cover: 2.3rem; --name-dock: 1.6rem; }
+   Phone: the cover is the first screen and simply scrolls away; a top bar and a bottom tab bar fade in. app.js writes --e on #side only (never on <html>: that would restyle the whole
+   document every frame) and sets opacity/width/left inline on the few elements that move. */
+:root { --e: 0; --sidew: 21rem; --av: 1.25; --name-cover: 2.3rem; --name-dock: 1.6rem; }
 #side {
   position: fixed; inset: 0 auto 0 0; width: 100vw; z-index: 10; overflow: hidden auto; scrollbar-width: none; color: #fff;
   background: linear-gradient(160deg, var(--g1), var(--g2) 58%, var(--g3));
@@ -93,13 +95,13 @@ h1, h2, h3 { line-height: 1.25; margin: 0; }
 }
 
 /* drag handle on the sidebar's edge: dragging it scrubs the page between the cover and Home (desktop only) */
-#grip { position: fixed; top: 0; bottom: 0; left: calc(var(--sw) - 18px); width: 18px; z-index: 11; border: 0; padding: 0; background: transparent; cursor: col-resize; touch-action: none; }
+#grip { position: fixed; top: 0; bottom: 0; left: calc(100vw - 36px); width: 18px; z-index: 11; border: 0; padding: 0; background: transparent; cursor: col-resize; touch-action: none; }
 #grip i { position: absolute; top: 50%; left: 50%; width: 6px; height: 56px; margin: -28px 0 0 -3px; border-radius: 6px; background: rgba(255, 255, 255, .55); transition: background .2s, height .2s; }
 #grip:hover i, #grip:focus-visible i, body.dragging #grip i { background: var(--sun); height: 80px; margin-top: -40px; }
 body.dragging { user-select: none; cursor: col-resize; }
 
 /* scroll cue on the cover: fades out as you scroll, click to go to Home */
-.cue { position: fixed; left: 50%; bottom: .8rem; transform: translateX(-50%); z-index: 11; border: 0; background: none; padding: .2rem .8rem; color: #fff; font-size: 2rem; line-height: 1; cursor: pointer; text-shadow: 0 1px 8px rgba(10, 8, 30, .5); opacity: max(0, calc(1 - var(--e) * 4)); pointer-events: auto; }
+.cue { position: fixed; left: 50%; bottom: .8rem; transform: translateX(-50%); z-index: 11; border: 0; background: none; padding: .2rem .8rem; color: #fff; font-size: 2rem; line-height: 1; cursor: pointer; text-shadow: 0 1px 8px rgba(10, 8, 30, .5); pointer-events: auto; }
 .cue span { display: block; animation: cue 1.6s ease-in-out infinite; }
 @keyframes cue { 0%, 100% { transform: translateY(-4px); opacity: .5; } 50% { transform: translateY(6px); opacity: 1; } }
 
@@ -108,16 +110,16 @@ body.dragging { user-select: none; cursor: col-resize; }
 
 /* ---------------------------------------------------------------- content */
 #content { margin-left: var(--sidew); min-height: 100vh; display: flex; flex-direction: column; }
-#spacer { height: var(--cover); flex: none; }
-#app, #pager, .foot { opacity: var(--e); }
-#progress { position: fixed; top: 0; left: var(--sidew); right: 0; height: 3px; z-index: 12; transform-origin: 0 50%; transform: scaleX(0); opacity: var(--e); background: linear-gradient(90deg, var(--accent2), var(--sun), var(--rose)); }
+#spacer { flex: none; }
+@media (min-width: 56.01rem) { #app, #pager, .foot, #progress { opacity: 0; } }   /* app.js fades them in with the cover morph */
+#progress { position: fixed; top: 0; left: var(--sidew); right: 0; height: 3px; z-index: 12; transform-origin: 0 50%; transform: scaleX(0); background: linear-gradient(90deg, var(--accent2), var(--sun), var(--rose)); }
 #pager { position: fixed; right: .85rem; top: 50%; transform: translateY(-50%); z-index: 12; display: flex; flex-direction: column; gap: .8rem; }
 #pager button { width: .75rem; height: .75rem; padding: 0; border-radius: 50%; border: 2px solid var(--accent); background: transparent; cursor: pointer; transition: transform .25s, background .25s; }
 #pager button:hover { transform: scale(1.5); background: color-mix(in srgb, var(--accent) 40%, transparent); }
 #pager button[aria-current="page"] { background: var(--accent); transform: scale(1.35); }
 main { flex: 1; width: 100%; max-width: 50rem; margin: 0 auto; padding: 0 1.5rem; outline: none; }
 /* each "page" is a section of the one long page */
-.page { padding: 3.4rem 0 3.8rem; min-height: 80vh; min-height: 80dvh; }
+.page { padding: 3.4rem 0 3.8rem; min-height: 80vh; }
 .page + .page { border-top: 1px solid var(--line); }
 h1.title { font-size: 2.1rem; font-weight: 700; letter-spacing: -.01em; outline: none; }
 .rule { border: 0; border-top: 1px solid var(--line); margin: 1rem 0 1.5rem; }
@@ -262,8 +264,8 @@ a.chip { text-decoration: none; display: inline-block; }
   #grip, #pager, #spacer { display: none; }
 
   /* the cover is the first screen of the page; it scrolls away like any other content */
-  #side { position: relative; inset: auto; width: 100%; min-height: 100vh; min-height: 100dvh; z-index: 1; box-shadow: none; }
-  .side-in { width: min(26rem, 100%); padding: 1.2rem 1rem; gap: .7rem; opacity: calc(1 - var(--e) * .9); transform: translateY(calc(var(--e) * 6vh)); }
+  #side { position: relative; inset: auto; width: 100%; min-height: 100vh; min-height: 100svh; z-index: 1; box-shadow: none; }   /* svh/vh, never dvh: dvh changes while the browser toolbar slides and would shift the whole page mid-scroll */
+  .side-in { width: min(26rem, 100%); padding: 1.2rem 1rem; gap: .7rem; opacity: calc(1 - var(--e) * .9); transform: translateY(calc(var(--e) * 6vh)); will-change: opacity, transform; }
   .avatar { margin-bottom: 1rem; transform: scale(1.25); }
   .name { font-size: 1.9rem; }
   #nav { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: .5rem .6rem; }
@@ -272,12 +274,12 @@ a.chip { text-decoration: none; display: inline-block; }
   .cue { bottom: calc(.6rem + env(safe-area-inset-bottom)); }
 
   /* slim top bar (photo, name, dark mode) + bottom tab bar, faded/slid in as the cover leaves (--bo) */
-  #bar { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 20; align-items: center; gap: .65rem; height: calc(var(--bar) + env(safe-area-inset-top)); padding: env(safe-area-inset-top) .85rem 0; color: #fff; background: linear-gradient(160deg, var(--g1), var(--g2) 58%, var(--g3)); box-shadow: 0 2px 14px rgba(20, 15, 40, .3); opacity: var(--bo); pointer-events: none; }
+  #bar { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 20; align-items: center; gap: .65rem; height: calc(var(--bar) + env(safe-area-inset-top)); padding: env(safe-area-inset-top) .85rem 0; color: #fff; background: linear-gradient(160deg, var(--g1), var(--g2) 58%, var(--g3)); box-shadow: 0 2px 14px rgba(20, 15, 40, .3); opacity: 0; pointer-events: none; will-change: opacity; }
   #bar img { width: 2.5rem; height: 2.5rem; flex: none; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, .6); }
   #bar .name { font-size: 1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #bar .icon { flex: none; width: 2.5rem; height: 2.5rem; }
-  #tabs { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding-bottom: env(safe-area-inset-bottom); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(20, 15, 40, .12); opacity: var(--bo); transform: translateY(calc((1 - var(--bo)) * 100%)); pointer-events: none; }
-  .bar-on #bar, .bar-on #tabs { pointer-events: auto; }
+  #tabs { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding-bottom: env(safe-area-inset-bottom); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(20, 15, 40, .12); opacity: 0; transform: translateY(100%); pointer-events: none; will-change: opacity, transform; }
+  #bar.on, #tabs.on { pointer-events: auto; }
   #tabs a { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; height: var(--tabs); padding: .3rem 0; color: var(--muted); font-size: .72rem; font-weight: 600; text-decoration: none; }
   #tabs a .ni { display: block; font-size: 1.4rem; line-height: 1; transition: transform .2s; }
   #tabs a[aria-current="page"] { color: var(--accent); }
@@ -286,11 +288,11 @@ a.chip { text-decoration: none; display: inline-block; }
 
   #content { margin-left: 0; padding-bottom: calc(var(--tabs) + env(safe-area-inset-bottom)); }
   #app, .foot { opacity: 1; }
-  #progress { left: 0; top: calc(var(--bar) + env(safe-area-inset-top)); opacity: var(--bo); }
+  #progress { left: 0; top: calc(var(--bar) + env(safe-area-inset-top)); opacity: 0; }
   #toast { bottom: calc(var(--tabs) + env(safe-area-inset-bottom) + .8rem); max-width: 90vw; text-align: center; }
 
   main { padding: 0 1rem; }
-  .page { padding: 1.6rem 0 2.2rem; min-height: calc(100dvh - var(--bar) - var(--tabs)); }
+  .page { padding: 1.6rem 0 2.2rem; min-height: 70vh; min-height: calc(100svh - var(--bar) - var(--tabs)); }
   h1.title { font-size: 1.75rem; }
   .lead { font-size: 1.05rem; }
   h2.sub { margin-top: 1.6rem; }
@@ -303,7 +305,7 @@ a.chip { text-decoration: none; display: inline-block; }
 
   /* project overview: bottom sheet */
   #modal { margin: auto 0 0; width: 100%; border-radius: 20px 20px 0 0; }
-  #modal .sheet { max-height: 92vh; max-height: 92dvh; }
+  #modal .sheet { max-height: 92vh; max-height: 92svh; }
   #modal[open] .sheet { animation: sheetup .35s cubic-bezier(.2, .9, .3, 1); border-radius: 20px 20px 0 0; padding: 1.2rem 1.1rem calc(1.2rem + env(safe-area-inset-bottom)); }
   @keyframes sheetup { from { transform: translateY(100%); } }
   .sheet > .muted { padding-right: 2.8rem; }

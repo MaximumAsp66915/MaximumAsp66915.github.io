@@ -25,7 +25,7 @@
     const ctx = canvas.getContext("2d");
     let w = 0, h = 0, dpr = 1, pts = [], mouse = { x: -999, y: -999 }, running = true, paused = false, frame = 0, color = "255,255,255";
     function size() {
-      dpr = Math.min(devicePixelRatio || 1, 2);
+      dpr = matchMedia("(max-width: 56rem)").matches ? 1 : Math.min(devicePixelRatio || 1, 2); // phones: 1x is plenty for a soft background and 4x cheaper
       w = canvas.clientWidth; h = canvas.clientHeight;
       if (!w || !h) return;
       canvas.width = w * dpr; canvas.height = h * dpr;
@@ -130,10 +130,5 @@
     if (el && !el.contains(e.relatedTarget)) { el.style.setProperty("--rx", "0deg"); el.style.setProperty("--ry", "0deg"); }
   });
 
-  // ---- scroll progress ---------------------------------------------------
-  const bar = document.getElementById("progress");
-  addEventListener("scroll", () => {
-    const el = document.documentElement, room = el.scrollHeight - innerHeight;
-    bar.style.transform = `scaleX(${room > 0 ? scrollY / room : 0})`;
-  }, { passive: true });
+  // (the scroll progress bar is driven by app.js update(), which uses cached geometry)
 })();
