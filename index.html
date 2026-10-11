@@ -15,15 +15,14 @@
   <link rel="icon" type="image/png" sizes="96x96" href="assets/img/favicon-96.png">
   <link rel="icon" type="image/png" sizes="192x192" href="assets/img/favicon-192.png">
   <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261019">
-  <script src="assets/js/config.js?v=20261019"></script>
-  <script src="assets/js/data.js?v=20261019" defer></script>
-  <script src="assets/js/tracker.js?v=20261019" defer></script>
-  <script src="assets/js/fx.js?v=20261019" defer></script>
-  <script src="assets/js/app.js?v=20261019" defer></script>
+  <link rel="stylesheet" href="assets/css/style.css?v=20261021">
+  <script src="assets/js/config.js?v=20261021"></script>
+  <script src="assets/js/data.js?v=20261021" defer></script>
+  <script src="assets/js/tracker.js?v=20261021" defer></script>
+  <script src="assets/js/fx.js?v=20261021" defer></script>
+  <script src="assets/js/app.js?v=20261021" defer></script>
 </head>
-<body class="landing">
-  <script>if (location.hash && !/^#\/home/.test(location.hash)) document.body.classList.remove("landing");</script>
+<body>
   <a class="skip" href="#app">Skip to content</a>
 
   <aside id="side">
@@ -36,7 +35,7 @@
           <img src="assets/img/avatar-256.jpg" srcset="assets/img/avatar-128.jpg 128w, assets/img/avatar-256.jpg 256w, assets/img/avatar-384.jpg 384w, assets/img/avatar-512.jpg 512w" sizes="140px" width="112" height="112" alt="Portrait of Mohammadhossein Sabzalian">
         </picture>
       </div>
-      <a class="name" href="#/home">Mohammadhossein Sabzalian</a>
+      <a class="name" href="#/home" data-top>Mohammadhossein Sabzalian</a>
       <p class="tagline" id="tagline"></p>
       <p class="typed">I work on <span id="typed"></span><i class="caret"></i></p>
       <nav id="nav" aria-label="Main"></nav>
@@ -48,13 +47,21 @@
     </div>
   </aside>
 
-  <div class="cue" aria-hidden="true"><span>⌄</span></div>
-  <button type="button" id="grip" aria-label="Drag to resize or close the side panel" title="Drag me"><i></i></button>
+  <!-- phone only: slim top bar and bottom tab bar that fade in once the cover has scrolled away -->
+  <div id="bar">
+    <img src="assets/img/avatar-128.jpg" width="40" height="40" alt="">
+    <a class="name" href="#/home" data-top>Mohammadhossein Sabzalian</a>
+    <button type="button" id="theme2" class="icon" aria-label="Switch to dark mode" title="Dark mode">🌙</button>
+  </div>
+  <nav id="tabs" aria-label="Pages"></nav>
+
+  <button type="button" class="cue" id="cue" aria-label="Scroll down"><span aria-hidden="true">⌄</span></button>
+  <button type="button" id="grip" aria-label="Drag to slide between the cover and the page" title="Drag me"><i></i></button>
 
   <div id="content">
     <div id="progress" aria-hidden="true"></div>
     <nav id="pager" aria-label="Pages"></nav>
-    <button type="button" id="close" aria-label="Close panel" title="Close (Esc)">✕</button>
+    <div id="spacer" aria-hidden="true"></div>
     <main id="app" tabindex="-1">
       <noscript><p>This site needs JavaScript. My CV: <a href="assets/cv.pdf">PDF</a>.</p></noscript>
     </main>

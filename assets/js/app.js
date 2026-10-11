@@ -1,26 +1,28 @@
-// Single-page site: hash routes, content from data.js, effects from fx.js, anonymous events via tracker.js.
-// The side panel starts closed (cover). Picking a menu item opens it; the grip can be dragged to resize or close it.
+// ONE continuous page: cover, Home, Projects, Experience, CV and Misc are stacked sections of a single scrolling document.
+//  - Desktop: the fixed sidebar morphs from a full-screen cover into the docked sidebar as you scroll (scroll-linked, no snap).
+//  - Phone: the cover is the first screen and scrolls away; a top bar and a bottom tab bar fade in.
+//  - Menu / tabs / dots smooth-scroll to a section and light up the section you are in (scroll-spy).
+// Content comes from data.js, effects from fx.js, anonymous events from tracker.js.
 (function () {
   "use strict";
   const S = window.SITE, FX = window.FX;
   const $ = (sel, root = document) => root.querySelector(sel);
-  const body = document.body, root = document.documentElement, app = $("#app");
+  const root = document.documentElement, app = $("#app"), side = $("#side");
   const slug = s => String(s).replace(/[^A-Za-z0-9/_.:-]/g, "-").slice(0, 48);
   const track = (type, target, value) => window.Tracker && window.Tracker.event(type, slug(target), value);
   const state = { tag: "all", tech: null, q: "" };
-  let lastToggle = 0;            // last time the panel opened/closed or the page changed (cooldown for scroll gestures)
-  let enterFrom = "bottom";      // direction the next page slides in from
-  let pendingScroll = "top";     // where to land on the next page
-  const isClosed = () => body.classList.contains("landing");
-  const jump = y => { const h = document.documentElement; h.style.scrollBehavior = "auto"; window.scrollTo(0, y); h.style.scrollBehavior = ""; }; // always instant, whatever the CSS says
+  const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+  const mobileMQ = matchMedia("(max-width: 56rem)");
+  const isMobile = () => mobileMQ.matches;
+  // instant scroll, whatever the CSS says (a smooth reset would fight the finger / wheel momentum)
+  const jump = y => { root.style.scrollBehavior = "auto"; window.scrollTo(0, y); root.style.scrollBehavior = ""; };
 
-  const ROUTES = {
+  const PAGES = {
     home:       { label: "Home",       icon: "🏠", render: renderHome },
     projects:   { label: "Projects",   icon: "🛠️", render: renderProjects },
     experience: { label: "Experience", icon: "💼", render: renderExperience },
     cv:         { label: "CV",         icon: "📄", render: renderCV },
     misc:       { label: "Misc",       icon: "✨", render: renderMisc },
-    privacy:    { label: "Privacy",    render: renderPrivacy, hidden: true },
   };
   const NAV = ["home", "projects", "experience", "cv", "misc"];
 
@@ -47,11 +49,10 @@
     return el;
   }
   const ext = (text, href, id, cls) => h("a", { href, class: cls, target: "_blank", rel: "noopener noreferrer", "data-track": "click", "data-target": id }, text);
-  const go = route => { location.hash = "#/" + route; };
 
-  function page(name, title, ...kids) {
-    return h("div", { class: "pagein" + (enterFrom === "top" ? " from-top" : "") },
-      h("div", { class: "crumb" }, h("a", { href: "#/home" }, "Home"), name === "home" ? "" : " / " + ROUTES[name].label),
+  // a "page" is a section of the long page
+  function page(id, title, ...kids) {
+    return h("section", { class: "page", id, "data-page": id },
       h("h1", { class: "title", tabindex: "-1" }, title),
       h("hr", { class: "rule" }),
       kids);
@@ -59,14 +60,13 @@
   const sub = (name, title, ...kids) => h("div", { "data-section": name }, h("h2", { class: "sub reveal" }, title), kids);
   const rv = (el) => { el.classList.add("reveal"); return el; };
 
-  // reveal-on-scroll, count-up, section events
+  // reveal-on-scroll, count-up, section events: one observer for the whole page; activate(root) registers new elements
   let revealObs = null;
   function activate(rootEl) {
-    if (revealObs) revealObs.disconnect();
     const items = [...rootEl.querySelectorAll(".reveal, [data-section]")];
     items.filter(e => e.classList.contains("reveal")).forEach((e, i) => e.style.setProperty("--i", String(i % 8)));
     if (!("IntersectionObserver" in window)) { items.forEach(e => e.classList.add("in")); rootEl.querySelectorAll("[data-to]").forEach(FX.count); return; }
-    revealObs = new IntersectionObserver(entries => entries.forEach(en => {
+    if (!revealObs) revealObs = new IntersectionObserver(entries => entries.forEach(en => {
       if (!en.isIntersecting) return;
       const el = en.target;
       el.classList.add("in");
@@ -85,6 +85,13 @@
     else location.href = "mailto:" + S.email;
   }
 
+  // re-render one section in place (e.g. Projects after a filter was chosen elsewhere) and scroll to it
+  function showProjects() {
+    const old = $("#projects"), fresh = PAGES.projects.render();
+    old.replaceWith(fresh); activate(fresh);
+    scrollToId("projects");
+  }
+
   // ------------------------------------------------------------------ pages
   function renderHome() {
     const img = (n) => `assets/img/portrait-${n}`;
@@ -101,7 +108,7 @@
       sub("contact", "Find me", h("div", { class: "chips reveal contact" },
         ext("GitHub", S.github, "gh-profile", "chip"), h("button", { class: "chip", type: "button", onclick: copyEmail }, "Copy email"), ext("LinkedIn", S.linkedin, "linkedin", "chip"))),
       sub("interests", "I like", h("div", { class: "chips reveal" }, S.interests.map(i =>
-        h("button", { class: "chip", type: "button", onclick: () => { state.tag = i.tag; state.tech = null; state.q = ""; track("click", "interest-" + i.tag); go("projects"); } }, i.icon + " " + i.label)))));
+        h("button", { class: "chip", type: "button", onclick: () => { state.tag = i.tag; state.tech = null; state.q = ""; track("click", "interest-" + i.tag); showProjects(); } }, i.icon + " " + i.label)))));
   }
 
   function renderProjects() {
@@ -168,7 +175,7 @@
         h("div", { class: "fact" }, h("b", { "data-to": n, "data-dec": dec || 0, "data-comma": comma ? "1" : null }, "0"), h("span", {}, label)))),
       h("ul", { class: "points" }, p.points.map(t => h("li", {}, t))),
       h("div", { class: "chips", style: "margin:.6rem 0" }, p.tech.map(t =>
-        h("button", { class: "chip", type: "button", title: "Show projects using " + t, onclick: () => { state.tech = t; state.tag = "all"; state.q = ""; track("click", "tech-" + t); modal.close(); if (!isClosed() && currentRoute === "projects") rerender(); else { setOpen(true); go("projects"); } } }, t))),
+        h("button", { class: "chip", type: "button", title: "Show projects using " + t, onclick: () => { state.tech = t; state.tag = "all"; state.q = ""; track("click", "tech-" + t); modal.close(); showProjects(); } }, t))),
       p.links.length ? h("div", { class: "actions" }, p.links.map(([label, href, tid], n) => ext(label + " ↗", href, tid, n === 0 ? "btn" : "btn ghost"))) : null,
       h("div", { class: "nav" }, h("button", { type: "button", onclick: () => step(-1) }, "← Previous"), h("button", { type: "button", onclick: () => step(1) }, "Next →"))));
     if (!modal.open) modal.showModal();
@@ -177,6 +184,7 @@
   }
   modal.addEventListener("click", e => { if (e.target === modal) modal.close(); });
   modal.addEventListener("keydown", e => {
+    if (!modal.dataset.id) return; // the privacy notice uses the same dialog
     const i = S.projects.findIndex(p => p.id === modal.dataset.id);
     if (e.key === "ArrowRight") openProject(S.projects[(i + 1) % S.projects.length].id);
     if (e.key === "ArrowLeft") openProject(S.projects[(i - 1 + S.projects.length) % S.projects.length].id);
@@ -190,7 +198,7 @@
       sub("skills", "Skills", h("p", { class: "muted reveal" }, "Tap a skill to see the projects that use it."),
         S.skills.map(([group, items]) => h("div", { class: "skillgroup reveal" }, h("h3", {}, group), h("div", { class: "chips" }, items.map(t => {
           const n = uses(t);
-          return n ? h("button", { type: "button", class: "chip", onclick: () => { state.tech = t; state.tag = "all"; state.q = ""; track("click", "skill-" + t); go("projects"); } }, t, h("small", {}, "×" + n)) : h("span", { class: "chip static" }, t);
+          return n ? h("button", { type: "button", class: "chip", onclick: () => { state.tech = t; state.tag = "all"; state.q = ""; track("click", "skill-" + t); showProjects(); } }, t, h("small", {}, "×" + n)) : h("span", { class: "chip static" }, t);
         }))))));
   }
 
@@ -224,8 +232,12 @@
       h("p", { class: "muted" }, "More as it comes ✍️"));
   }
 
-  function renderPrivacy() {
-    return page("privacy", "Privacy",
+  // the privacy notice opens in the shared dialog (footer link / #/privacy)
+  function openPrivacy() {
+    modal.dataset.id = "";
+    modal.replaceChildren(h("div", { class: "sheet" },
+      h("button", { class: "close", type: "button", "aria-label": "Close", onclick: () => modal.close() }, "✕"),
+      h("h2", {}, "Privacy"),
       h("p", {}, "I count visits anonymously to see which pages and files are useful. Run by Mohammadhossein Sabzalian, ", h("a", { href: "mailto:" + S.email }, S.email), "."),
       h("ul", { class: "points" },
         h("li", {}, "Recorded: page, section and time spent, scroll depth, downloads, link clicks, referring site (domain), device type, and the tag in a link (?ref=)."),
@@ -233,167 +245,154 @@
         h("li", {}, "Never stored: your IP address or browser identifier. No cookies, no local storage, no fingerprinting, no third-party trackers or fonts."),
         h("li", {}, "Do Not Track or Global Privacy Control: nothing is recorded."),
         h("li", {}, "Basis: legitimate interest (GDPR Art. 6(1)(f)). Deleted after 12 months. Daily codes can't be tied to a person, so individual lookup or deletion isn't possible."),
-        h("li", {}, "Hosting: GitHub Pages has its own privacy policy.")));
+        h("li", {}, "Hosting: GitHub Pages has its own privacy policy."))));
+    if (!modal.open) modal.showModal();
+    track("click", "privacy");
   }
 
-  // ----------------------------------------------------------------- router
-  let currentRoute = null, first = true;
-  const routeName = () => { const m = location.hash.match(/^#\/([a-z]+)/); return m && ROUTES[m[1]] ? m[1] : "home"; };
+  // ------------------------------------------------- build the page (always first, so nothing optional can blank it)
+  app.replaceChildren(...NAV.map(id => PAGES[id].render()));
+  activate(app);
 
-  function renderNav(active) {
-    const items = NAV.map((k, n) => h("a", { href: "#/" + k, "data-route": k, style: `--n:${n}`, "aria-current": k === active ? "page" : null },
-      h("span", { class: "ni", "aria-hidden": "true" }, ROUTES[k].icon), h("span", { class: "nl" }, ROUTES[k].label)));
-    $("#nav").replaceChildren(...items);
-    const pager = $("#pager");
-    if (pager) pager.replaceChildren(...NAV.map((k, n) => h("button", { type: "button", title: ROUTES[k].label, "aria-label": "Go to " + ROUTES[k].label, "aria-current": k === active ? "page" : null,
-      onclick: () => { const cur = NAV.indexOf(currentRoute); enterFrom = n < cur ? "top" : "bottom"; track("click", "pager-" + k); location.hash = "#/" + k; } })));
+  // --------------------------------------------------- geometry, scroll-linked cover, scroll-spy
+  let D = 0, SIDE_PX = 336, vh = innerHeight;      // D = distance (px) over which the desktop cover turns into the sidebar
+  const ease = p => p * p * (3 - 2 * p);           // smoothstep
+  const invEase = e => 0.5 - Math.sin(Math.asin(1 - 2 * clamp(e)) / 3);
+  function measure() {
+    vh = innerHeight;
+    SIDE_PX = parseFloat(getComputedStyle(root).fontSize) * 21;
+    D = isMobile() ? 0 : Math.round(clamp(vh * 0.6, 320, 640));
+    root.style.setProperty("--cover", D + "px");
   }
-  function rerender() { app.replaceChildren(ROUTES[currentRoute].render()); activate(app); }
-  function navigate() {
-    const name = routeName();
-    const changed = name !== currentRoute;
-    currentRoute = name;
-    if (name !== "home") body.classList.remove("landing"); // deep links open the panel
-    if (changed) {
-      document.title = (name === "home" ? "" : ROUTES[name].label + " · ") + S.name;
-      renderNav(name);
-      rerender();
-      jump(0);
-      pendingScroll = "top"; enterFrom = "bottom"; lastToggle = performance.now();
-      if (!first && !isClosed()) { const t = $("h1", app); t && t.focus({ preventScroll: true }); }
+  const barPx = () => (isMobile() ? ($("#bar").offsetHeight || 56) : 0);
+  const sectionTop = id => $("#" + id).getBoundingClientRect().top + scrollY;
+  const targetY = id => id === "cover" ? 0 : Math.max(0, Math.round(sectionTop(id) - barPx()));
+
+  let navTarget = null;       // while a menu click is scrolling, that section stays highlighted
+  let lastActive = null, viewT = 0, viewed = null, particles = null;
+  const progress = $("#progress");
+
+  function computeActive() {
+    const y = scrollY, room = root.scrollHeight - vh;
+    if (navTarget) return navTarget;
+    if (y < (isMobile() ? vh * 0.5 : D * 0.5)) return "cover";
+    if (room > 0 && y >= room - 4) return NAV[NAV.length - 1];
+    const probe = isMobile() ? barPx() + vh * 0.3 : vh * 0.35;
+    let act = NAV[0];
+    for (const id of NAV) if ($("#" + id).getBoundingClientRect().top <= probe) act = id;
+    return act;
+  }
+  function setActive(id) {
+    if (id === lastActive) return;
+    lastActive = id;
+    const cur = id === "cover" ? null : id;
+    document.querySelectorAll("#nav a, #tabs a").forEach(a => a.toggleAttribute("aria-current", false) || (a.dataset.route === cur && a.setAttribute("aria-current", "page")));
+    document.querySelectorAll("#pager button").forEach(b => b.toggleAttribute("aria-current", false) || (b.dataset.route === cur && b.setAttribute("aria-current", "page")));
+    document.title = (cur ? PAGES[cur].label + " · " : "") + S.name;
+    try { history.replaceState(null, "", cur ? "#/" + cur : location.pathname + location.search); } catch (_) { /* file:// etc. */ }
+    clearTimeout(viewT);
+    viewT = setTimeout(() => { if (viewed !== id) { viewed = id; window.Tracker && window.Tracker.view(id === "cover" ? "cover" : id); } }, 500);
+  }
+
+  function update() {
+    const y = scrollY, W = root.clientWidth; // visible width (without the scrollbar)
+    let e, bo = 0;
+    if (!isMobile()) {
+      e = ease(clamp(D ? y / D : 1));
+      const w = W - (W - SIDE_PX) * e;
+      side.style.width = w.toFixed(1) + "px";
+      root.style.setProperty("--sw", w.toFixed(1) + "px");
+    } else {
+      e = clamp(y / (vh * 0.6));
+      bo = clamp((y - vh * 0.5) / (vh * 0.5 - barPx())); // fully in exactly when the cover's bottom edge reaches the bar
+      side.style.width = "";
+      if (particles) (y > vh ? particles.pause() : particles.resume());
     }
-    first = false;
-    window.Tracker && window.Tracker.view(isClosed() ? "cover" : name);
+    root.style.setProperty("--e", e.toFixed(4));
+    root.style.setProperty("--bo", bo.toFixed(3));
+    root.classList.toggle("bar-on", bo > 0.05);
+    const room = root.scrollHeight - vh;
+    progress.style.transform = `scaleX(${room > 0 ? clamp(y / room) : 0})`;
+    setActive(computeActive());
+  }
+  let ticking = false, idleT = 0;
+  addEventListener("scroll", () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; update(); }); }
+    clearTimeout(idleT); idleT = setTimeout(() => { navTarget = null; update(); }, 160);
+  }, { passive: true });
+  addEventListener("resize", () => { measure(); update(); });
+  mobileMQ.addEventListener ? mobileMQ.addEventListener("change", () => { measure(); update(); }) : mobileMQ.addListener(() => { measure(); update(); });
+
+  function scrollToId(id, instant) {
+    navTarget = id === "cover" ? null : id;
+    const y = targetY(id);
+    if (instant || FX.reduce) jump(y); else window.scrollTo({ top: y, behavior: "smooth" });
+    update();
   }
 
-  addEventListener("hashchange", navigate);
-  navigate(); // pages render first; everything below is optional polish and can never block them
+  // ------------------------------------------------------------ menu, tabs, dots, in-page links
+  function renderNav() {
+    $("#nav").replaceChildren(...NAV.map(id => h("a", { href: "#/" + id, "data-route": id }, h("span", { class: "nl" }, PAGES[id].label))));
+    $("#tabs").replaceChildren(...NAV.map(id => h("a", { href: "#/" + id, "data-route": id }, h("span", { class: "ni", "aria-hidden": "true" }, PAGES[id].icon), h("span", { class: "nl" }, PAGES[id].label))));
+    $("#pager").replaceChildren(...NAV.map(id => h("button", { type: "button", "data-route": id, title: PAGES[id].label, "aria-label": "Go to " + PAGES[id].label, onclick: () => { track("click", "pager-" + id); scrollToId(id); } })));
+  }
+  renderNav();
+  document.addEventListener("click", ev => {
+    const a = ev.target.closest('a[href^="#/"]');
+    if (!a || ev.defaultPrevented || ev.metaKey || ev.ctrlKey || ev.shiftKey) return;
+    const id = a.getAttribute("href").slice(2);
+    ev.preventDefault();
+    if (id === "privacy") return openPrivacy();
+    if (a.hasAttribute("data-top")) { track("click", "nav-top"); return scrollToId("cover"); }
+    if (NAV.includes(id)) { track("click", "nav-" + id); scrollToId(id); }
+  });
+  document.addEventListener("click", ev => { const a = ev.target.closest("a[data-track]"); if (a) track(a.dataset.track, a.dataset.target || "link"); });
+  $("#cue").addEventListener("click", () => { track("click", "cue"); scrollToId("home"); });
+  // footer privacy link is plain markup: href="#/privacy" is handled by the delegated click above
+
+  // -------------------------------------------------------------- start position (deep links, reloads)
+  try { history.scrollRestoration = "manual"; } catch (_) { /* ignore */ }
+  measure();
+  const startId = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
+  let startY = 0;
+  if (startId === "privacy") openPrivacy();
+  else if (NAV.includes(startId)) { startY = targetY(startId); }
+  jump(startY); update();
+  addEventListener("load", () => { // images may have shifted the layout a few px: re-aim once, unless the visitor already scrolled
+    measure();
+    if (NAV.includes(startId) && scrollY === startY) { startY = targetY(startId); jump(startY); }
+    update();
+  });
+  addEventListener("hashchange", () => { // typed/edited URL or browser buttons
+    const id = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
+    if (id === "privacy") openPrivacy(); else if (NAV.includes(id) && id !== lastActive) scrollToId(id);
+  });
 
   const safe = (name, fn) => { try { fn(); } catch (e) { console.warn("optional feature failed: " + name, e); } };
 
-  // ------------------------------------------------- the movable side panel
-  function setOpen(open) { body.classList.toggle("landing", !open); lastToggle = performance.now(); }
-  function openPanel() {
-    if (!isClosed()) return;
-    setOpen(true); jump(0);
-    window.Tracker && currentRoute && window.Tracker.view(currentRoute);
-  }
-  function closePanel() {
-    if (isClosed()) return;
-    setOpen(false); root.style.removeProperty("--side");
-    window.Tracker && window.Tracker.view("cover");
-  }
-  // menu: open the panel and show the chosen page (works even when the hash is unchanged)
-  $("#side").addEventListener("click", ev => {
-    const a = ev.target.closest("a[data-route]");
-    if (!a) return;
-    ev.preventDefault();
-    const r = a.dataset.route;
-    if (location.hash === "#/" + r || (r === "home" && !location.hash)) openPanel(); else { setOpen(true); location.hash = "#/" + r; }
-  });
-  $("#close").addEventListener("click", () => { track("click", "panel-close"); closePanel(); });
-  addEventListener("keydown", e => { if (e.key === "Escape" && !modal.open) closePanel(); });
-
-  const grip = $("#grip");
-  let drag = null;
+  // ---------------------------------------- the edge handle: drag to scrub between the cover and the page (desktop)
   safe("grip", () => {
-  grip.addEventListener("pointerdown", e => { drag = { wasClosed: isClosed() }; grip.setPointerCapture(e.pointerId); body.classList.add("dragging"); e.preventDefault(); });
-  grip.addEventListener("pointermove", e => {
-    if (!drag) return;
-    const W = innerWidth;
-    if (drag.wasClosed) { if (e.clientX < W * 0.8) { setOpen(true); drag.wasClosed = false; } else return; }
-    root.style.setProperty("--side", Math.max(256, Math.min(e.clientX, W * 0.9)) + "px");
-  });
-  function endDrag(e) {
-    if (!drag) return;
-    body.classList.remove("dragging");
-    if (!drag.wasClosed) {
-      if (e.clientX > innerWidth * 0.8) { track("click", "panel-drag-close"); closePanel(); }
-      else { root.style.setProperty("--side", Math.max(256, Math.min(e.clientX, innerWidth * 0.6)) + "px"); track("click", "panel-resize"); }
-    }
-    drag = null;
-  }
-  grip.addEventListener("pointerup", endDrag); grip.addEventListener("pointercancel", endDrag);
-  grip.addEventListener("keydown", e => {
-    const cur = parseFloat(getComputedStyle($("#side")).width);
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); isClosed() ? openPanel() : closePanel(); }
-    else if (e.key === "ArrowLeft" && !isClosed()) root.style.setProperty("--side", Math.max(256, cur - 32) + "px");
-    else if (e.key === "ArrowRight" && !isClosed()) root.style.setProperty("--side", Math.min(innerWidth * 0.6, cur + 32) + "px");
-  });
-  });
-
-  // scrolling moves through the pages: down on the cover opens Home; down at the bottom of a page goes to the next menu item,
-  // up at the top goes to the previous one; up at the top of Home closes the panel. A gesture only counts if it STARTS at the
-  // edge, and each gesture triggers at most one move, so trackpad momentum can never skip several pages.
-  safe("scroll-pages", () => {
-    const now = () => performance.now();
-    const atTop = () => scrollY <= 1;
-    const atBottom = () => scrollY + innerHeight >= document.documentElement.scrollHeight - 2;
-    // a gesture may START within 40 px of an edge (pages that barely overflow count as fitting); the move itself needs the exact edge
-    const nearTop = () => scrollY <= 40;
-    const nearBottom = () => scrollY + innerHeight >= document.documentElement.scrollHeight - 40;
-    // After a page change the REST of the same gesture (trackpad inertia, a finger still moving, a fling) must not scroll the new
-    // page: wheel events are cancelled, touchmoves are cancelled, and any scroll that still happens within 900 ms is pulled back to
-    // the top. The new page therefore always starts at its top, in both directions.
-    let holdUntil = 0, wheelLocked = false, touchLocked = false, touching = false, frozen = false, thawT = 0, lastTouchAt = 0;
-    const hold = () => { holdUntil = now() + 900; };
-    // Touch: the finger/fling that changed the page must not move the NEW page at all. Freezing the page (html.freeze = overflow hidden)
-    // cancels the fling; it is released shortly after the finger lifts. Resets to the top are instant (see jump), never animated.
-    const thaw = () => { clearTimeout(thawT); frozen = false; document.documentElement.classList.remove("freeze"); if (scrollY > 0) jump(0); };
-    const scheduleThaw = () => { clearTimeout(thawT); thawT = setTimeout(thaw, Math.max(0, holdUntil - now()) + 200); };
-    const freeze = () => { if (!touching) return; frozen = true; document.documentElement.classList.add("freeze"); jump(0); clearTimeout(thawT); thawT = setTimeout(thaw, 3000); };
-    // wheel/keyboard only: pull stray scrolling back to the top (never fights a touch fling: that is handled by the freeze)
-    addEventListener("scroll", () => { if (!frozen && now() < holdUntil && now() - lastTouchAt > 1500 && scrollY > 0) jump(0); }, { passive: true });
-    const openHome = () => {
-      if (!isClosed()) return;
-      track("click", "scroll-open"); hold(); freeze();
-      if (location.hash === "#/home" || !location.hash) { openPanel(); } else { setOpen(true); location.hash = "#/home"; }
-    };
-    const step = delta => {
-      if (delta < 0 && currentRoute === "home") { track("click", "scroll-close"); hold(); freeze(); closePanel(); return true; }
-      const i = NAV.indexOf(currentRoute), j = i + delta;
-      if (i < 0 || j < 0 || j >= NAV.length) return false;
-      enterFrom = delta < 0 ? "top" : "bottom"; pendingScroll = "top"; hold(); freeze();
-      track("click", delta < 0 ? "scroll-prev" : "scroll-next");
-      location.hash = "#/" + NAV[j];
-      return true;
-    };
-    let lastWheel = 0, acc = 0, startTop = false, startBottom = false, used = false;
-    addEventListener("wheel", e => {
-      if (e.ctrlKey || modal.open) return; // pinch-zoom and the open modal keep their normal behaviour
-      const t = now(), fresh = t - lastWheel > 250; lastWheel = t;
-      if (fresh) { acc = 0; used = false; startTop = nearTop(); startBottom = nearBottom(); if (t - lastToggle >= 700) wheelLocked = false; }
-      if (wheelLocked) { e.preventDefault(); return; }
-      if (used || t - lastToggle < 700) return;
-      acc += e.deltaY;
-      if (isClosed()) { if (acc > 30) { used = true; wheelLocked = true; openHome(); } return; }
-      if (acc > 60 && startBottom && atBottom()) { used = step(1); wheelLocked = used; }
-      else if (acc < -60 && startTop && atTop()) { used = step(-1); wheelLocked = used; }
-    }, { passive: false });
-    let ty = null, tTop = false, tBottom = false;
-    addEventListener("touchstart", e => { touching = true; lastTouchAt = now(); ty = e.touches[0].clientY; tTop = nearTop(); tBottom = nearBottom(); touchLocked = false; }, { passive: true });
-    addEventListener("touchmove", e => {
-      lastTouchAt = now();
-      if (modal.open) return;
-      if (touchLocked) { if (e.cancelable) e.preventDefault(); return; }
-      if (ty === null || now() - lastToggle < 700) return;
-      const dy = e.touches[0].clientY - ty;
-      if (isClosed()) { if (dy < -40) { ty = null; touchLocked = true; openHome(); } return; }
-      if (dy < -70 && tBottom && atBottom()) { if (step(1)) { ty = null; touchLocked = true; } }
-      else if (dy > 70 && tTop && atTop()) { if (step(-1)) { ty = null; touchLocked = true; } }
-    }, { passive: false });
-    const touchDone = () => { ty = null; touchLocked = false; touching = false; lastTouchAt = now(); if (frozen) scheduleThaw(); };
-    addEventListener("touchend", touchDone, { passive: true });
-    addEventListener("touchcancel", touchDone, { passive: true });
-    addEventListener("keydown", e => { // keyboard users: scroll keys on the cover open Home too
-      if (isClosed() && ["ArrowDown", "PageDown", "End", " "].includes(e.key) && !e.target.closest("button, a, input, textarea, [role=button]")) { e.preventDefault(); openHome(); }
+    const grip = $("#grip");
+    let dragging = false;
+    grip.addEventListener("pointerdown", e => { dragging = true; navTarget = null; grip.setPointerCapture(e.pointerId); document.body.classList.add("dragging"); e.preventDefault(); });
+    grip.addEventListener("pointermove", e => {
+      if (!dragging || isMobile()) return;
+      const e01 = clamp((root.clientWidth - e.clientX) / (root.clientWidth - SIDE_PX));
+      jump(invEase(e01) * D);
+    });
+    const end = () => { if (dragging) { dragging = false; document.body.classList.remove("dragging"); track("click", "grip-drag"); } };
+    grip.addEventListener("pointerup", end); grip.addEventListener("pointercancel", end);
+    grip.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); scrollToId(scrollY < D * 0.5 ? "home" : "cover"); }
+      else if (e.key === "ArrowLeft") window.scrollBy({ top: D / 8 });
+      else if (e.key === "ArrowRight") window.scrollBy({ top: -D / 8 });
     });
   });
 
   // ---------------------------------------------------------------- sidebar
   $("#tagline").textContent = S.tagline;
   safe("typed", () => FX.typed($("#typed"), S.phrases));
-  safe("particles", () => FX.particles($("#bg"), $("#side")));
+  safe("particles", () => { particles = FX.particles($("#bg"), side); update(); });
   const icon = d => svg("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }, svg("path", { d }));
   $("#social").append(
     h("a", { href: S.github, target: "_blank", rel: "noopener noreferrer", "aria-label": "GitHub", title: "GitHub", "data-track": "click", "data-target": "gh-profile" },
@@ -402,23 +401,21 @@
       icon("M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm1.2 2 7.8 5.6L19.8 7H4.2ZM4 9.1V17h16V9.1l-8 5.7-8-5.7Z")),
     h("a", { href: S.linkedin, target: "_blank", rel: "noopener noreferrer", "aria-label": "LinkedIn", title: "LinkedIn", "data-track": "click", "data-target": "linkedin" },
       icon("M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9.5h4V21H3V9.5Zm6.5 0h3.8v1.6h.06c.53-1 1.83-2 3.77-2 4.03 0 4.77 2.65 4.77 6.1V21h-4v-5c0-1.2-.02-2.73-1.66-2.73-1.67 0-1.92 1.3-1.92 2.65V21h-4V9.5Z")));
-  $(".name").dataset.route = "home";
 
-  document.addEventListener("click", ev => { const a = ev.target.closest("a[data-track]"); if (a) track(a.dataset.track, a.dataset.target || "link"); });
-
-  // dark mode: the button shows the mode you would switch to (🌙 = go dark, ☀️ = go light)
-  const themeBtn = $("#theme"), mq = matchMedia("(prefers-color-scheme: dark)");
+  // dark mode: the buttons show the mode you would switch to (🌙 = go dark, ☀️ = go light)
+  const themeBtns = [$("#theme"), $("#theme2")].filter(Boolean), mq = matchMedia("(prefers-color-scheme: dark)");
   const isDark = () => root.dataset.theme ? root.dataset.theme === "dark" : mq.matches;
   function syncTheme() {
-    themeBtn.textContent = isDark() ? "☀️" : "🌙";
-    themeBtn.setAttribute("aria-label", isDark() ? "Switch to light mode" : "Switch to dark mode");
-    themeBtn.title = isDark() ? "Light mode" : "Dark mode";
+    themeBtns.forEach(b => {
+      b.textContent = isDark() ? "☀️" : "🌙";
+      b.setAttribute("aria-label", isDark() ? "Switch to light mode" : "Switch to dark mode");
+      b.title = isDark() ? "Light mode" : "Dark mode";
+    });
   }
-  themeBtn.addEventListener("click", () => {
+  themeBtns.forEach(b => b.addEventListener("click", () => {
     root.dataset.theme = isDark() ? "light" : "dark"; // deliberately not persisted: nothing is stored on the device
     syncTheme(); track("click", "theme");
-  });
+  }));
   safe("theme", () => { (mq.addEventListener ? mq.addEventListener.bind(mq, "change") : mq.addListener.bind(mq))(syncTheme); });
   syncTheme();
-
 })();

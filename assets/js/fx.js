@@ -23,22 +23,23 @@
   // ---- particle network in the sidebar -----------------------------------
   FX.particles = function (canvas, host) {
     const ctx = canvas.getContext("2d");
-    let w = 0, h = 0, dpr = 1, pts = [], mouse = { x: -999, y: -999 }, running = true, frame = 0, color = "255,255,255";
+    let w = 0, h = 0, dpr = 1, pts = [], mouse = { x: -999, y: -999 }, running = true, paused = false, frame = 0, color = "255,255,255";
     function size() {
       dpr = Math.min(devicePixelRatio || 1, 2);
-      w = host.clientWidth; h = host.clientHeight;
+      w = canvas.clientWidth; h = canvas.clientHeight;
+      if (!w || !h) return;
       canvas.width = w * dpr; canvas.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const count = Math.min(70, Math.round((w * h) / 14000));
       while (pts.length < count) pts.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - .5) * .35, vy: (Math.random() - .5) * .35, r: 1 + Math.random() * 2 });
       pts.length = count;
     }
-    new ResizeObserver(size).observe(host);
-    host.addEventListener("pointermove", e => { const r = host.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; });
+    new ResizeObserver(size).observe(canvas);
+    host.addEventListener("pointermove", e => { const r = canvas.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; });
     host.addEventListener("pointerleave", () => { mouse.x = mouse.y = -999; });
-    document.addEventListener("visibilitychange", () => { running = document.visibilityState === "visible"; if (running) loop(); });
+    document.addEventListener("visibilitychange", () => { running = document.visibilityState === "visible"; if (running && !paused) loop(); });
     function loop() {
-      if (!running) return;
+      if (!running || paused) return;
       if (++frame % 120 === 1) color = css("--particle") || color;
       ctx.clearRect(0, 0, w, h);
       for (const p of pts) {
@@ -60,6 +61,8 @@
       if (!reduce) requestAnimationFrame(loop);
     }
     size(); loop();
+    // the phone cover scrolls out of view: stop drawing while nobody can see it
+    return { pause() { paused = true; }, resume() { if (paused) { paused = false; if (running) loop(); } } };
   };
 
   // ---- confetti ----------------------------------------------------------
