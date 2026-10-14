@@ -64,7 +64,7 @@ window.SITE = {
       flow: ["JSON config", "BotOS", "Isolated Docker container", "Bot"],
       facts: [[2, "universities", 0]],
       points: ["Course files, grading and re-judge tickets for the EE department.", "Also used by two student groups.", "New bots deploy from a declarative JSON file."],
-      links: [] },
+      links: [["Code", "https://github.com/MaximumAsp66915/BotOS-Template", "gh-botos"]] },
   ],
 
   timeline: [

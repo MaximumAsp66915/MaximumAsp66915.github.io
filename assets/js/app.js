@@ -19,7 +19,7 @@
 
   const PAGES = {
     home:       { label: "Home",       icon: "🏠", render: renderHome },
-    projects:   { label: "Projects",   icon: "🛠️", render: renderProjects },
+    projects:   { label: "Projects",   icon: "📁", render: renderProjects },
     experience: { label: "Experience", icon: "💼", render: renderExperience },
     cv:         { label: "CV",         icon: "📄", render: renderCV },
     misc:       { label: "Misc",       icon: "✨", render: renderMisc },
